@@ -64,13 +64,17 @@ Deno.test({
     assertEquals(firstChild.literal, "literal");
 
     buildRouteTree(root, "/literal/child", "get", () => {});
-    const secondChild = firstChild.children.find((child) => child.raw === "child");
+    const secondChild = firstChild.children.find((child) =>
+      child.raw === "child"
+    );
     assertExists(secondChild);
     assert(secondChild instanceof LiteralNode);
     assertEquals(secondChild.literal, "child");
 
     buildRouteTree(root, "/secondTopLiteral", "get", () => {});
-    const thirdChild = root.children.find((child) => child.raw === "secondTopLiteral");
+    const thirdChild = root.children.find((child) =>
+      child.raw === "secondTopLiteral"
+    );
     assertExists(thirdChild);
     assert(thirdChild instanceof LiteralNode);
     assertEquals(thirdChild.literal, "secondTopLiteral");
@@ -86,7 +90,7 @@ Deno.test({
     buildRouteTree(root, "/literal", "get", () => {});
     const firstChild = root.children.find((child) => child.raw === "literal");
     assertExists(firstChild);
-    assertExists(firstChild.handler);
+    assertExists(firstChild.hasHandlers);
   },
 });
 
@@ -109,7 +113,10 @@ Deno.test({
     buildRouteTree(root, "/api/post/latest/comments", "get", () => {});
 
     // Ensure we match with the path that has a literal.
-    assertEquals(findRoute(root, "get", "/api/post/latest/comments")?.params, {})
+    assertEquals(
+      findRoute(root, "get", "/api/post/latest/comments")?.params,
+      {},
+    );
   },
 });
 
@@ -208,5 +215,36 @@ Deno.test({
       "test/testing",
     );
     assertEquals(findRoute(root, "get", "/paramsAny")?.params?.["test"], "");
+  },
+});
+
+Deno.test({
+  name: "different methods",
+  fn() {
+    let root = new RootNode();
+
+    buildRouteTree(root, "/test", "get", () => {});
+    buildRouteTree(root, "/test", "post", () => {});
+
+    assertExists(findRoute(root, "get", "/test"));
+    assertExists(findRoute(root, "post", "/test"));
+
+    root = new RootNode();
+
+    buildRouteTree(root, "/:test", "get", () => {});
+    buildRouteTree(root, "/:test", "post", () => {});
+
+    assertExists(findRoute(root, "get", "/test"));
+    assertExists(findRoute(root, "post", "/test"));
+  },
+});
+
+Deno.test({
+  name: "root routes",
+  fn() {
+    let root = new RootNode();
+
+    buildRouteTree(root, "/", "get", () => {});
+    assertExists(findRoute(root, "get", "/"));
   },
 });

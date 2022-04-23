@@ -1,10 +1,5 @@
 import { Method, RequestHandler } from "./router.ts";
 
-interface RouteHandler<Req, Res, Data> {
-  method: Method;
-  fn: RequestHandler<Req, Res, Data>;
-}
-
 interface MatchResult {
   taken: number;
   params: { [key: string]: string };
@@ -13,11 +8,10 @@ interface MatchResult {
 export abstract class RouteNode<Req, Res, Data> {
   raw: string;
   children: RouteNode<Req, Res, Data>[] = [];
-  handler: RouteHandler<Req, Res, Data> | undefined;
+  handlers: Map<Method, RequestHandler<Req, Res, Data>> = new Map();
 
-  constructor(raw: string, handler?: RouteHandler<Req, Res, Data>) {
+  constructor(raw: string) {
     this.raw = raw;
-    this.handler = handler;
   }
 
   /**
@@ -26,6 +20,10 @@ export abstract class RouteNode<Req, Res, Data> {
    * @returns Information about how many parts of the URL path were matched and any params found.
    */
   abstract matchParts(parts: string[]): MatchResult | undefined;
+
+  get hasHandlers(): boolean {
+    return this.handlers.size > 0;
+  }
 }
 
 // The root node of the router, should never be constructed by users.
@@ -45,9 +43,8 @@ export class LiteralNode<Req, Res, Data> extends RouteNode<Req, Res, Data> {
 
   constructor(
     literal: string,
-    handler?: RouteHandler<Req, Res, Data>,
   ) {
-    super(literal, handler);
+    super(literal);
     this.literal = literal;
   }
 
@@ -78,9 +75,8 @@ export class ParamNode<Req, Res, Data> extends RouteNode<Req, Res, Data> {
     name: string,
     modifier: ParamModifier,
     raw: string,
-    handler?: RouteHandler<Req, Res, Data>,
   ) {
-    super(raw, handler);
+    super(raw);
     this.name = name;
     this.modifier = modifier;
   }
@@ -91,7 +87,6 @@ export class ParamNode<Req, Res, Data> extends RouteNode<Req, Res, Data> {
    */
   static parse<Req, Res, Data>(
     text: string,
-    handler?: RouteHandler<Req, Res, Data>,
   ): ParamNode<Req, Res, Data> | undefined {
     const match = text.match(/^:(\w+)(\?|\*|\+)?/);
     if (match) {
@@ -99,7 +94,6 @@ export class ParamNode<Req, Res, Data> extends RouteNode<Req, Res, Data> {
         match[1],
         ModifierMap[match[2] || ""],
         text,
-        handler,
       );
     }
   }
@@ -150,27 +144,37 @@ export function buildRouteTree<Req, Res, Data>(
   method: Method,
   handler: RequestHandler<Req, Res, Data>,
 ): void {
+  if (path === "/") {
+    // If root already has a handle for this method then throw.
+    if (root.handlers.has(method)) {
+      throw new Error(`Path conflicts with existing route`);
+    }
+
+    root.handlers.set(method, handler);
+
+    return;
+  }
+
   const parts = path.split("/").filter((part) => part.length > 0);
   let current = root;
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
     const matchingChild = current.children.find((child) => child.raw === part);
-    const handlerForNode = i == parts.length - 1
-      ? {
-        fn: handler,
-        method,
-      }
-      : undefined;
+    const handlerForNode = i == parts.length - 1 ? handler : undefined;
 
     if (matchingChild) {
       current = matchingChild;
 
-      if (handlerForNode && current.handler === undefined) {
-        current.handler = handlerForNode;
+      if (handlerForNode) {
+        if (current.handlers.get(method)) {
+          throw new Error(`Path conflicts with existing route`);
+        } else {
+          current.handlers.set(method, handlerForNode);
+        }
       }
     } else {
-      const newChild = ParamNode.parse(part, handlerForNode) ??
-        new LiteralNode(part, handlerForNode);
+      const newChild: RouteNode<Req, Res, Data> = ParamNode.parse(part) ??
+        new LiteralNode(part);
 
       if (
         i != parts.length - 1 &&
@@ -188,14 +192,21 @@ export function buildRouteTree<Req, Res, Data>(
       if (handlerForNode) {
         if (
           newChild instanceof LiteralNode &&
-          current.children.find((child) => child.raw === newChild.raw)
+          current.children.find((child) =>
+            child.raw === newChild.raw && child.handlers.has(method)
+          )
         ) {
           throw new Error(`Path conflicts with existing route`);
         }
 
-        if (newChild instanceof ParamNode && current.children.find((child) => child.handler !== undefined)) {
-            throw new Error("Path conflicts with existing route");
+        if (
+          newChild instanceof ParamNode &&
+          current.children.find((child) => child.handlers.has(method))
+        ) {
+          throw new Error("Path conflicts with existing route");
         }
+
+        newChild.handlers.set(method, handlerForNode);
       }
 
       current.children.push(newChild);
@@ -238,10 +249,8 @@ export function findRoute<Req, Res, Data>(
 
     // Try to find a child that matches the next part of the path.
     for (const child of current.children) {
-      const childMethod = child.handler?.method;
-
       // If we have a handler and our method doesn't match, we can't match.
-      if (childMethod && childMethod != method) {
+      if (child.hasHandlers && !child.handlers.has(method)) {
         continue;
       }
 
@@ -263,7 +272,7 @@ export function findRoute<Req, Res, Data>(
 
   // If we didn't find a handler, let's try to see if we have any children that are optional or any
   // length params.
-  if (!current.handler) {
+  if (!current.handlers.has(method)) {
     for (const child of current.children) {
       const subslice = parts.slice(i);
       if (!(child instanceof ParamNode)) {
@@ -275,10 +284,8 @@ export function findRoute<Req, Res, Data>(
         continue;
       }
 
-      const childMethod = child.handler?.method;
-
       // If we have a handler and our method doesn't match, we can't match.
-      if (childMethod && childMethod != method) {
+      if (child.hasHandlers && !child.handlers.has(method)) {
         continue;
       }
 
@@ -292,9 +299,10 @@ export function findRoute<Req, Res, Data>(
     }
   }
 
-  if (current.handler) {
+  const handler = current.handlers.get(method);
+  if (handler) {
     return {
-      handler: current.handler.fn,
+      handler,
       params,
     };
   }
