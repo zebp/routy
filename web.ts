@@ -7,7 +7,7 @@ export class WebRouter extends Router<Request, Response> {
       ...url.searchParams.entries(),
     ].reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {});
     const queryString = [...url.searchParams.entries()]
-      .map(([k, v]) => `${encodeURIComponent(k)}:${encodeURIComponent(v)}`)
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
       .join("&");
 
     return {
