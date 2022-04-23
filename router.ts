@@ -1,6 +1,6 @@
-import { Iter } from "https://deno.land/x/iterext@v1.1.1/mod.ts";
+import { buildRouteTree, findRoute, RootNode } from "./route.ts";
 
-type Method =
+export type Method =
   | "get"
   | "post"
   | "put"
@@ -15,6 +15,7 @@ export interface RequestInfo {
   path: string;
   fullPath: string;
   query: Record<string, string>;
+  method: Method;
 }
 
 export interface RequestContext extends RequestInfo {
@@ -27,14 +28,8 @@ export type RequestHandler<Req, Res, Data> = (
   context: RequestContext,
 ) => Promise<Res> | Res;
 
-interface Route<Req, Res, Data> {
-  method: Method;
-  path: string;
-  handler: RequestHandler<Req, Res, Data>;
-}
-
 export abstract class Router<Req, Res, Data = void> {
-  #routes: Route<Req, Res, Data>[] = [];
+  #root = new RootNode<Req, Res, Data>();
 
   /**
    * Registers a route requiring the GET method.
@@ -123,21 +118,15 @@ export abstract class Router<Req, Res, Data = void> {
 
   async route(req: Req, data: Data): Promise<Res> {
     const info = this.extractRequestInfo(req);
+    const foundRoute = findRoute(this.#root, info.method, info.path);
 
-    this.#routes.forEach(() => {});
+    if (foundRoute) {
+      const res = foundRoute.handler(req, data, { ...info, params: foundRoute.params });
 
-    for (const route of this.#routes) {
-      const matches = tryMatchRoute(route.path, info.path);
-
-      if (matches) {
-        const context = { ...info, params: matches };
-        const res = route.handler(req, data, context);
-
-        if (res instanceof Promise) {
-          return res;
-        } else {
-          return Promise.resolve(res);
-        }
+      if (res instanceof Promise) {
+        return res;
+      } else {
+        return Promise.resolve(res);
       }
     }
 
@@ -149,38 +138,7 @@ export abstract class Router<Req, Res, Data = void> {
     method: Method,
     handler: RequestHandler<Req, Res, Data>,
   ): this {
-    this.#routes.push({ path, method, handler });
+    buildRouteTree(this.#root, path, method, handler);
     return this;
   }
-}
-
-// TODO: Make this use some tree structure in the future.
-export function tryMatchRoute(
-  route: string,
-  path: string,
-): Record<string, string> | undefined {
-  const routeSegements = new Iter(route.split("/")[Symbol.iterator]())
-    .filter((seg) => seg != "")
-    .map((seg) => seg.toLocaleLowerCase());
-  const pathSegments = new Iter(path.split("/")[Symbol.iterator]())
-    .filter((seg) => seg != "")
-    .map((seg) => seg.toLocaleLowerCase());
-
-  const params: Record<string, string> = {};
-  const segments = routeSegements.zip(pathSegments);
-
-  for (const [r, p] of segments) {
-    if (r.startsWith(":")) {
-      const paramName = r.substring(1);
-      params[paramName] = p;
-    } else if (r != p) {
-      return undefined;
-    }
-  }
-
-  // Ensure the route and the path don't have remaining segments;
-  if (routeSegements.count() > 0) return undefined;
-  if (pathSegments.count() > 0) return undefined;
-
-  return params;
 }
