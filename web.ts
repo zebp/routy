@@ -1,4 +1,4 @@
-import { RequestInfo, Router } from "./mod.ts";
+import { Method, RequestInfo, Router } from "./mod.ts";
 
 export class WebRouter extends Router<Request, Response> {
   extractRequestInfo(req: Request): RequestInfo {
@@ -14,6 +14,7 @@ export class WebRouter extends Router<Request, Response> {
       path: url.pathname,
       query,
       fullPath: `${url.pathname}?${queryString}`,
+      method: req.method.toLowerCase() as Method
     };
   }
 
