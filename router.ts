@@ -116,6 +116,13 @@ export abstract class Router<Req, Res, Data = void> {
 
   abstract notFound(): Promise<Res> | Res;
 
+  /**
+   * Routes an incoming request with any provided data to a route if found or responds with
+   * {@link notFound}.
+   * @param req The incoming request.
+   * @param data Any shared data to be provided to the route.
+   * @returns A response.
+   */
   async route(req: Req, data: Data): Promise<Res> {
     const info = this.extractRequestInfo(req);
     const foundRoute = findRoute(this.#root, info.method, info.path);
