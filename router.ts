@@ -114,14 +114,17 @@ export abstract class Router<Req, Res, Data = void> {
 
   abstract extractRequestInfo(req: Req): RequestInfo;
 
-  abstract notFound(): Res;
+  abstract notFound(): Promise<Res> | Res;
 
   async route(req: Req, data: Data): Promise<Res> {
     const info = this.extractRequestInfo(req);
     const foundRoute = findRoute(this.#root, info.method, info.path);
 
     if (foundRoute) {
-      const res = foundRoute.handler(req, data, { ...info, params: foundRoute.params });
+      const res = foundRoute.handler(req, data, {
+        ...info,
+        params: foundRoute.params,
+      });
 
       if (res instanceof Promise) {
         return res;
