@@ -1,6 +1,6 @@
 import { Method, RequestInfo, Router } from "./mod.ts";
 
-export class WebRouter extends Router<Request, Response> {
+export class WebRouter<Data = void> extends Router<Request, Response, Data> {
   extractRequestInfo(req: Request): RequestInfo {
     const url = new URL(req.url);
     const query: Record<string, string> = [
@@ -14,7 +14,7 @@ export class WebRouter extends Router<Request, Response> {
       path: url.pathname,
       query,
       fullPath: `${url.pathname}?${queryString}`,
-      method: req.method.toLowerCase() as Method
+      method: req.method.toLowerCase() as Method,
     };
   }
 
