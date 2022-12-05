@@ -55,7 +55,7 @@ Deno.test({
 Deno.test({
   name: "route tree with literal nodes",
   fn() {
-    let root = new RootNode();
+    const root = new RootNode();
 
     buildRouteTree(root, "/literal", "get", () => {});
     const firstChild = root.children.find((child) => child.raw === "literal");
@@ -84,7 +84,7 @@ Deno.test({
 Deno.test({
   name: "add route after child",
   fn() {
-    let root = new RootNode();
+    const root = new RootNode();
 
     buildRouteTree(root, "/literal/test", "get", () => {});
     buildRouteTree(root, "/literal", "get", () => {});
@@ -97,7 +97,7 @@ Deno.test({
 Deno.test({
   name: "conflicting routes",
   fn() {
-    let root = new RootNode();
+    const root = new RootNode();
 
     buildRouteTree(root, "/literal", "get", () => {});
     assertThrows(() => buildRouteTree(root, "/:param", "get", () => {}));
@@ -107,7 +107,7 @@ Deno.test({
 Deno.test({
   name: "overload path with literal",
   fn() {
-    let root = new RootNode();
+    const root = new RootNode();
 
     buildRouteTree(root, "/api/post/:post/comments", "get", () => {});
     buildRouteTree(root, "/api/post/latest/comments", "get", () => {});
@@ -176,7 +176,7 @@ Deno.test({
 Deno.test({
   name: "route path",
   fn() {
-    let root = new RootNode();
+    const root = new RootNode();
 
     buildRouteTree(root, "/a/b", "get", () => {});
     buildRouteTree(root, "/params/:test", "get", () => {});
@@ -242,7 +242,7 @@ Deno.test({
 Deno.test({
   name: "root routes",
   fn() {
-    let root = new RootNode();
+    const root = new RootNode();
 
     buildRouteTree(root, "/", "get", () => {});
     assertExists(findRoute(root, "get", "/"));

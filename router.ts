@@ -123,7 +123,7 @@ export abstract class Router<Req, Res, Data = void> {
    * @param data Any shared data to be provided to the route.
    * @returns A response.
    */
-  async route(req: Req, data: Data): Promise<Res> {
+  route(req: Req, data: Data): Promise<Res> {
     const info = this.extractRequestInfo(req);
     const foundRoute = findRoute(this.#root, info.method, info.path);
 
