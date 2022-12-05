@@ -8,7 +8,7 @@ export type Method =
   | "patch"
   | "head"
   | "connect"
-  | "option"
+  | "options"
   | "trace";
 
 export interface RequestInfo {
@@ -99,8 +99,8 @@ export abstract class Router<Req, Res, Data = void> {
    * @param path the path patter that requests must match to get routed.
    * @param handler a function responsible for handling the request.
    */
-  option(path: string, handler: RequestHandler<Req, Res, Data>): this {
-    return this.#register(path, "option", handler);
+  options(path: string, handler: RequestHandler<Req, Res, Data>): this {
+    return this.#register(path, "options", handler);
   }
 
   /**
