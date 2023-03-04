@@ -248,3 +248,15 @@ Deno.test({
     assertExists(findRoute(root, "get", "/"));
   },
 });
+
+Deno.test({
+  name: "different method with param child",
+  fn() {
+    const root = new RootNode();
+
+    buildRouteTree(root, "/initialization", "get", () => {});
+    buildRouteTree(root, "/initialization/:test", "post", () => {});
+    assertExists(findRoute(root, "get", "/initialization/"));
+    assertExists(findRoute(root, "post", "/initialization/bla"));
+  },
+});

@@ -251,7 +251,13 @@ export function findRoute<Req, Res, Data>(
     for (const child of current.children) {
       // If we have a handler and our method doesn't match, we can't match.
       if (child.hasHandlers && !child.handlers.has(method)) {
-        continue;
+        const paramNodeChildren = child.children.filter((child) =>
+          child instanceof ParamNode
+        );
+
+        if (paramNodeChildren.length === 0) {
+          continue;
+        }
       }
 
       const result = child.matchParts(subslice);
