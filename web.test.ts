@@ -1,4 +1,7 @@
-import { assertEquals } from "https://deno.land/std@0.126.0/testing/asserts.ts";
+import {
+  assertEquals,
+  fail,
+} from "https://deno.land/std@0.126.0/testing/asserts.ts";
 import { WebRouter } from "./web.ts";
 
 Deno.test({
@@ -45,5 +48,42 @@ Deno.test({
       new Request("http://localhost/api/post/some_id"),
     );
     assertEquals(await respParam.text(), "some_id");
+  },
+});
+
+Deno.test({
+  name: "middleware",
+  async fn() {
+    const middlewareCalls: string[] = [];
+    const router = new WebRouter()
+      .middleware(async (req, data, ctx, next) => {
+        middlewareCalls.push("a");
+        return await next(req, data, ctx);
+      })
+      .middleware(async (req, data, ctx, next) => {
+        middlewareCalls.push("b");
+        return await next(req, data, ctx);
+      })
+      .get(
+        "/api/post/:id",
+        (_req, _data, ctx) => new Response(ctx.params.id),
+        () => fail("middleware should not have been called."),
+      )
+      .get(
+        "/api/post/latest",
+        () => new Response("This is the latest post!"),
+        async (req, data, ctx, next) => {
+          middlewareCalls.push("c");
+          return await next(req, data, ctx);
+        },
+      );
+
+    const respLatest = await router.route(
+      new Request("http://localhost/api/post/latest"),
+    );
+    assertEquals(await respLatest.text(), "This is the latest post!");
+
+    // Ensure both middlewares are called in the correct order.
+    assertEquals(middlewareCalls, ["a", "b", "c"]);
   },
 });
